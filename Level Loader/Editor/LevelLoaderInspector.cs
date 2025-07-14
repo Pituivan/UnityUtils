@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -59,21 +60,22 @@ namespace Pituivan.UnityUtils
             for (int i = 0; i < defaultLevelNamesProp.arraySize; i++)
             {
                 string name = defaultLevelNamesProp.GetArrayElementAtIndex(i).stringValue;
-                if (string.IsNullOrEmpty(name)) continue;
+                if (name == null) continue;
                 
-                string[] guids = AssetDatabase.FindAssets($"t:SceneAsset {name}");
+                var paths = (from guid in AssetDatabase.FindAssets("t:SceneAsset " + name) 
+                               let path = AssetDatabase.GUIDToAssetPath(guid)
+                               let fileName = Path.GetFileNameWithoutExtension(path)
+                               where fileName == name
+                               select path).ToArray();
 
-                if (guids.Length > 1)
+                if (paths.Length == 0) continue;
+                if (paths.Length > 1)
                 {
                     DisplayRepeatedLevelNameError(name);
                     return false;
                 }
                 
-                string guid = guids[0];
-                if (guid == null) continue;
-
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-                var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(path);
+                var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(paths[0]);
                 defaultLevels[i] = sceneAsset;
             }
             
@@ -172,6 +174,7 @@ namespace Pituivan.UnityUtils
             EventCallback<ChangeEvent<Object>> callback = evt =>
             {
                 var newLevel = (SceneAsset)evt.newValue;
+                defaultLevels[levelIndex] = newLevel;
                 
                 bool RepeatedName(SceneAsset lvl) => lvl != newLevel && lvl?.name == newLevel.name;
                 if (defaultLevels.Any(RepeatedName))
@@ -179,8 +182,7 @@ namespace Pituivan.UnityUtils
                     DisplayRepeatedLevelNameError(newLevel.name);
                     return;
                 }
-
-                defaultLevels[levelIndex] = newLevel;
+                
                 defaultLevelNamesProp.GetArrayElementAtIndex(levelIndex).stringValue = newLevel.name;
                 serializedObject.ApplyModifiedProperties();
             };
