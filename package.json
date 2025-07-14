@@ -1,0 +1,11 @@
+{
+  "name": "com.pituivan.unityutils",
+  "version": "0.0.0",
+  "displayName": "Unity Utils",
+  "description": "Tools and code utilities for Unity.",
+  "unity": "2021.1",
+  "author": {
+    "name": "Pituivan",
+    "email": "pituivandev@gmail.com"
+  }
+}
