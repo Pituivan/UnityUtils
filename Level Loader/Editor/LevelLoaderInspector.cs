@@ -26,7 +26,7 @@ namespace Pituivan.UnityUtils
         private ObservableCollection<SceneAsset> defaultLevels;
 
         private VisualElement inspector;
-        private VisualElement defaultLevelSetTitle;
+        private VisualElement defaultLevelSetHeader;
         private ListView defaultLevelsListView;
 
         private bool isInRepeatedNameErrorState;
@@ -136,6 +136,11 @@ namespace Pituivan.UnityUtils
                         if (defaultLevels.Count == 0)
                             ToggleAddFirstLevelMode(true);
                         break;
+                    
+                    case NotifyCollectionChangedAction.Reset:
+                        defaultLevelNamesProp.ClearArray();
+                        ToggleAddFirstLevelMode(true);
+                        break;
                 }
                 
                 defaultLevelsListView.RefreshItems();
@@ -145,14 +150,17 @@ namespace Pituivan.UnityUtils
 
         private void ToggleAddFirstLevelMode(bool value)
         {
-            defaultLevelSetTitle.style.display = value ? DisplayStyle.None : DisplayStyle.Flex;
+            defaultLevelSetHeader.style.display = value ? DisplayStyle.None : DisplayStyle.Flex;
             defaultLevelsListView.showBorder = !value;
             defaultLevelsListView.showAddRemoveFooter = !value;
         }
         
         private void InitVisualElements()
         {
-            defaultLevelSetTitle = inspector.Q("default-levels-title");
+            defaultLevelSetHeader = inspector.Q("default-levels-header");
+
+            Button clearDefaultLevelsBtn = defaultLevelSetHeader.Q<Button>("clear-default-levels");
+            clearDefaultLevelsBtn.clicked += () => defaultLevels.Clear();
             
             defaultLevelsListView = inspector.Q<ListView>("default-levels");
             defaultLevelsListView.makeNoneElement = NoLevelsMsgFactory;
@@ -189,7 +197,7 @@ namespace Pituivan.UnityUtils
                     return;
                 }
                 
-                defaultLevelNamesProp.GetArrayElementAtIndex(levelIndex).stringValue = newLevel.name;
+                defaultLevelNamesProp.GetArrayElementAtIndex(levelIndex).stringValue = newLevel?.name;
                 serializedObject.ApplyModifiedProperties();
             };
             
