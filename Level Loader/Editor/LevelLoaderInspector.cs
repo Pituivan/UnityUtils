@@ -190,7 +190,7 @@ namespace Pituivan.UnityUtils
                 var newLevel = (SceneAsset)evt.newValue;
                 defaultLevels[levelIndex] = newLevel;
                 
-                bool RepeatedName(SceneAsset lvl) => lvl != newLevel && lvl?.name == newLevel.name;
+                bool RepeatedName(SceneAsset lvl) => lvl != newLevel && lvl?.name == newLevel?.name;
                 if (defaultLevels.Any(RepeatedName))
                 {
                     DisplayRepeatedLevelNameError(newLevel.name);
