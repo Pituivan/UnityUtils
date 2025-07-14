@@ -59,16 +59,22 @@ namespace Pituivan.UnityUtils
             var defaultLevels = new SceneAsset[defaultLevelNamesProp.arraySize];
             for (int i = 0; i < defaultLevelNamesProp.arraySize; i++)
             {
-                string name = defaultLevelNamesProp.GetArrayElementAtIndex(i).stringValue;
+                SerializedProperty nameProp = defaultLevelNamesProp.GetArrayElementAtIndex(i);
+                string name = nameProp.stringValue;
                 if (name == null) continue;
                 
                 var paths = (from guid in AssetDatabase.FindAssets("t:SceneAsset " + name) 
-                               let path = AssetDatabase.GUIDToAssetPath(guid)
-                               let fileName = Path.GetFileNameWithoutExtension(path)
-                               where fileName == name
-                               select path).ToArray();
+                             let path = AssetDatabase.GUIDToAssetPath(guid)
+                             let fileName = Path.GetFileNameWithoutExtension(path)
+                             where fileName == name
+                             select path).ToArray();
 
-                if (paths.Length == 0) continue;
+                if (paths.Length == 0)
+                {
+                    nameProp.stringValue = null;
+                    continue;
+                }
+                
                 if (paths.Length > 1)
                 {
                     DisplayRepeatedLevelNameError(name);
