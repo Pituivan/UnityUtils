@@ -1,0 +1,25 @@
+:root {
+}
+
+.title {
+    align-self: center;
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+
+.btn {
+    top: 5px;
+    align-self: center;
+    -unity-font-style: bold;
+    font-size: 13px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+.pulse {
+    transition-duration: 0.1s;
+    transition-property: scale;
+    transition-timing-function: ease-in-sine;
+}

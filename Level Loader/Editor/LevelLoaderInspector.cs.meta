@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5f5d02871ce94d2198c44df67957bd8c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - ui: {fileID: 9197481963319205126, guid: 0e03ee98a613ab84384c88d8a571a2b6, type: 3}
+  - noLevelsMsg: {fileID: 9197481963319205126, guid: a2a0efe526e7a5149ac3b0d6f87d722c, type: 3}
+  - repeatedNameErrorMsg: {fileID: 9197481963319205126, guid: 7a22a0141a8126a47a9b3496a9004257, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
