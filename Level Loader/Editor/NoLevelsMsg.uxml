@@ -1,0 +1,7 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <Style src="project://database/Assets/Pituivan/Level%20Loader/Editor/Styles.uss?fileID=7433441132597879392&amp;guid=030dfcfe55904994b80042e238c49ccc&amp;type=3#Styles" />
+    <ui:VisualElement name="content-container" style="flex-grow: 1; margin-bottom: 10px; margin-top: 10px;">
+        <ui:Label text="You haven&apos;t added any default levels yet." name="text" class="title" style="margin-top: 0;" />
+        <ui:Button text="Add your first level" name="add-level" class="btn" />
+    </ui:VisualElement>
+</ui:UXML>
