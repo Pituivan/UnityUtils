@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -6,93 +7,82 @@ namespace Pituivan.UnityUtils
 {
     /// <summary>
     /// In order for this controller to function properly, make sure of the following: <br/>
-    /// - <see cref="backgroundProgression"/> has enough sprites to vertically cover the entire camera. <br/>
     /// - The main camera won't be changed or replaced after Awake. <br/>
-    /// - The main camera won't rotate.
+    /// - The main camera won't rotate. <br/>
+    /// - The main camera is orthographic, of course.
     /// </summary>
     public class InfiniteVerticalBackgroundController : MonoBehaviour
     {
-        // ----- Nested Members
+        // ----- Serialized Fields
 
-        private class LayerData
-        {
-            public Transform SectionPrefab { get; set; }
-            public Sprite SectionSprite { get; set; }
-            
-            public Transform SectionToTheLeft { get; set; }
-            public Transform SectionToTheRight { get; set; }
-        }
-        
-        // ----- Serialized Fields & Properties
-        
         [Tooltip("Drag here all the vertical layers of the background in order.")]
-        [SerializeField] private Sprite[] backgroundProgression;
-        
-        [SerializeField] private int orderInLayer;
-        
-        // Rotation isn't handled
+        [SerializeField]
+        private Sprite[] backgroundProgression;
+
+        [SerializeField]
+        private int orderInLayer;
+
         [Tooltip("Leave this off only if you're sure your camera won't move in the x-axis.")]
-        [SerializeField] private bool checkForCameraHorizontalMovement = true;
+        [SerializeField]
+        private bool checkForCameraHorizontalMovement = true;
+
         [Tooltip("Leave this off only if you're sure your camera won't move in the y-axis.")]
-        [SerializeField] private bool checkForCameraVerticalMovement = true;
-        
-        [field: Space]
-        [field: SerializeField] 
-        public float Speed { get; set; } = 0.25f;
-        
-        private float CameraWidth => camera.orthographicSize * 2f * camera.aspect;
-        
+        [SerializeField]
+        private bool checkForCameraVerticalMovement = true;
+
+        [Space]
+        [SerializeField]
+        private float speed = 0.25f;
+
         // ----- Private Fields
 
-        // Note that this controller assumes main camera won't change
         private new Camera camera;
+        private Bounds cameraBounds;
         private float lastCameraAspect;
         
-        private Transform[] backgroundLayers;
-        private int bottomLayerIndex, topLayerIndex;
-        private bool repositioningLayer;
+        // ----- Properties
 
-        private readonly Dictionary<Transform, LayerData> layerDataMap = new();
-        
+        public float Speed
+        {
+            get => speed;
+            set => speed = value;
+        }
+
+        public bool CheckForCameraVerticalMovement
+        {
+            get => checkForCameraVerticalMovement;
+            set => checkForCameraVerticalMovement = value;
+        }
+
+        public bool CheckForCameraHorizontalMovement
+        {
+            get => checkForCameraHorizontalMovement;
+            set => checkForCameraHorizontalMovement = value;
+        }
+
+        internal int OrderInLayer => orderInLayer;
+
+        internal Bounds CameraBounds => cameraBounds;
+
+        // ----- Events
+
+        internal event Action CameraAspectRadioChanged;
+
         // ----- Unity Callbacks
 
         void Start()
         {
             camera = Camera.main;
-            lastCameraAspect = camera.aspect;
-            bottomLayerIndex = 0;
-            topLayerIndex = backgroundProgression.Length - 1;
+
+            cameraBounds.center = transform.position;
+            UpdateCameraBoundsSize();
             
-            CreateAndArrangeBackgroundLayers();
+            FillCameraWithBackgroundLayers();
         }
 
-        void Update()
+        void LateUpdate()
         {
-            bool aspectRatioChanged = lastCameraAspect != camera.aspect;
-            
-            if (aspectRatioChanged)
-                lastCameraAspect = camera.aspect;
-            
-            LoopBackground(aspectRatioChanged);
-        }
-
-        private void OnDrawGizmos()
-        {
-            if (!Application.isPlaying) return;
-            
-            Gizmos.color = Color.aquamarine;
-            Gizmos.DrawCube(
-                center: backgroundLayers[topLayerIndex].position,
-                size: new Vector3(backgroundProgression[topLayerIndex].bounds.size.x * backgroundLayers[topLayerIndex].childCount, backgroundProgression[topLayerIndex].bounds.size.y)
-                );
-
-            Gizmos.color = Color.darkRed;
-            Gizmos.DrawWireCube(
-                center: backgroundLayers[topLayerIndex].position,
-                size: new Vector3(backgroundProgression[bottomLayerIndex].bounds.size.x * backgroundLayers[bottomLayerIndex].childCount, backgroundProgression[bottomLayerIndex].bounds.size.y)
-                );
-
-            Debug.Log((bottomLayerIndex, topLayerIndex));
+            CheckForChangesInCamera();
         }
 
         // ----- Public Methods
@@ -104,255 +94,78 @@ namespace Pituivan.UnityUtils
         {
             this.backgroundProgression = backgroundProgression;
         }
-        
+
         // ----- Private Methods
         
-        private void CreateAndArrangeBackgroundLayers()
+        private void FillCameraWithBackgroundLayers()
         {
-            backgroundLayers = new Transform[backgroundProgression.Length];
+            var layers = GetComponentsInChildren<VerticalBackgroundLayer>().ToList();
 
             float coveredHeight = 0f;
-            for (int i = 0; i < backgroundLayers.Length; i++)
+            for (int i = 0; i < layers.Count; i++)
             {
-                float layerHeight = backgroundProgression[i].bounds.size.y;
-                
-                Transform layer = backgroundLayers[i] = CreateBackgroundLayer(i);
-                PlaceLayerAtTheBottom(layer, layerHeight);
-                layer.position += Vector3.up * coveredHeight;
-                
-                coveredHeight += layerHeight;
+                Sprite layerSprite = backgroundProgression[i % backgroundProgression.Length];
+                coveredHeight = layerSprite.bounds.size.y;
             }
-        }
-        
-        private Transform CreateBackgroundLayer(int index)
-        {
-            Sprite layerHorizontalSectionSprite = backgroundProgression[index];
             
-            Transform layer = new GameObject($"Horizontal Layer {index}").transform;
-            layerDataMap[layer] = new LayerData { SectionSprite = layerHorizontalSectionSprite };
-            
-            layer.SetParent(transform);
-            PopulateLayer(layer);
-            
-            return layer;
-        }
-
-        private void PopulateLayer(Transform layer)
-        {
-            CreateHorizontalSection(layer);
-            CoverLayerWithSections(layer);
-        }
-
-        private void CoverLayerWithSections(Transform layer)
-        {
-            float cameraWidth = CameraWidth;
-            float sectionWidth = layerDataMap[layer].SectionSprite.bounds.size.x;
-            
-            float coveredArea = layer.childCount * sectionWidth;
-
-            int i = layer.childCount / 2 + 1;
-            do
+            while (coveredHeight < camera.orthographicSize * 2f)
             {
-                PlaceTwoSections(layer, i);
+                foreach (Sprite sectionSprite in backgroundProgression)
+                {
+                    var layerObj = new GameObject("Background Layer");
+                    var layer = layerObj.AddComponent<VerticalBackgroundLayer>();
+                    layer.transform.SetParent(transform);
 
-                coveredArea += sectionWidth * 2f;
-                i++;
-            } while (coveredArea < cameraWidth);
-        }
-
-        private void PlaceTwoSections(Transform layer, int sectionPairIndex)
-        {
-            LayerData layerData = layerDataMap[layer];
-            float sectionWidth = layerData.SectionSprite.bounds.size.x;
-            
-            Transform sectionToTheLeft = layerData.SectionToTheLeft = CreateHorizontalSection(layer);
-            sectionToTheLeft.localPosition = sectionWidth * sectionPairIndex * Vector3.left;
-            sectionToTheLeft.position += Vector3.right * 0.001f;
+                    layer.transform.position += coveredHeight * Vector3.up;
+                    coveredHeight += sectionSprite.bounds.size.y;
                     
-            Transform sectionToTheRight = layerData.SectionToTheRight = CreateHorizontalSection(layer);
-            sectionToTheRight.localPosition = sectionWidth * sectionPairIndex * Vector3.right;
-            sectionToTheRight.position += Vector3.left * 0.001f;
-        }
-
-        private Transform CreateHorizontalSection(Transform layer)
-        {
-            Transform section;
-            if (layerDataMap[layer].SectionPrefab)
-            {
-                section = Instantiate(layerDataMap[layer].SectionPrefab);
-            }
-            else
-            {
-                var sectionObj = new GameObject("Horizontal Section");
-                var sr = sectionObj.AddComponent<SpriteRenderer>();
-            
-                sr.sprite = layerDataMap[layer].SectionSprite;
-                sr.sortingOrder = orderInLayer;
-
-                layerDataMap[layer].SectionPrefab = section = sectionObj.transform;
+                    layers.Add(layer);
+                }
             }
             
-            section.SetParent(layer);
-            return section;
+            InitBackgroundLayers(layers);
         }
 
-        private void PlaceLayerAtTheBottom(Transform layer, float layerHeight)
+        private void InitBackgroundLayers(List<VerticalBackgroundLayer> layers)
         {
-            float cameraBottom = camera.transform.position.y - camera.orthographicSize;
-            layer.position = Vector3.up * (cameraBottom + layerHeight / 2f);
-        }
-        
-        private void LoopBackground(bool aspectRatioChanged)
-        {
-            foreach (Transform layer in backgroundLayers)
-                layer.localPosition += Vector3.down * (Speed * Time.deltaTime);
-
-            if (BottomLayerUnderCamera())
+            for (int i = 0; i < layers.Count; i++)
             {
-                BottomLayerToTop();
+                layers[i].Init(
+                    sectionSprite: backgroundProgression[i % backgroundProgression.Length],
+                    startsAsHead: i == 0,
+                    context: new VerticalBackgroundLayer.LayerContext(
+                        parentController: this,
+                        previous: layers[(i + 1) % layers.Count],
+                        next: layers[(layers.Count + i - 1) % layers.Count]
+                        )
+                );
+            }
+        }
+
+        private void UpdateCameraBoundsSize()
+        {
+            float camHeight = camera.orthographicSize * 2f;
+            float camWidth = camHeight * camera.aspect;
+
+            cameraBounds.size = new Vector3(camWidth, camHeight);
+        }
+
+        private void CheckForChangesInCamera()
+        {
+            if (checkForCameraVerticalMovement || checkForCameraHorizontalMovement)
+                cameraBounds.center = camera.transform.position;
+            
+            if (lastCameraAspect != camera.aspect)
+            {
+                float oldHeight = cameraBounds.size.y;
+                UpdateCameraBoundsSize();
                 
-                topLayerIndex = bottomLayerIndex;
-                bottomLayerIndex = (backgroundLayers.Length + bottomLayerIndex - 1) % backgroundLayers.Length;
-            } 
-            else if (CameraUnderBottomLayer())
-            {
-                TopLayerToBottom();
+                if (cameraBounds.size.y > oldHeight)
+                    FillCameraWithBackgroundLayers();
                 
-                bottomLayerIndex = topLayerIndex;
-                topLayerIndex = (bottomLayerIndex + 1) % backgroundLayers.Length;
+                CameraAspectRadioChanged?.Invoke();
+                lastCameraAspect = camera.aspect;   
             }
-            
-            if (aspectRatioChanged)
-            {
-                RepositionLayerSections();
-                
-                foreach (Transform layer in backgroundLayers)
-                    CoverLayerWithSections(layer);
-            }
-
-            if (checkForCameraHorizontalMovement)
-                RepositionLayerSections();
-        }
-        
-        private bool BottomLayerUnderCamera()
-        {
-            Transform bottomLayer = backgroundLayers[bottomLayerIndex];
-            Sprite bottomLayerSprite = backgroundProgression[bottomLayerIndex];
-            float bottomLayerHeight = bottomLayerSprite.bounds.size.y;
-
-            float bottomLayerTop = bottomLayer.position.y + bottomLayerHeight / 2f;
-            float cameraBottom = camera.transform.position.y - camera.orthographicSize;
-
-            return bottomLayerTop < cameraBottom;
-        }
-
-        private void BottomLayerToTop()
-        {
-            Transform bottomLayer = backgroundLayers[bottomLayerIndex];
-            Transform topLayer = backgroundLayers[topLayerIndex];
-            
-            Sprite topLayerSprite = backgroundProgression[bottomLayerIndex];
-            Sprite bottomLayerSprite = backgroundProgression[bottomLayerIndex];
-            float topLayerHeight = topLayerSprite.bounds.size.y;
-            float bottomLayerHeight = bottomLayerSprite.bounds.size.y;
-
-            float y = topLayer.transform.position.y + topLayerHeight / 2f + bottomLayerHeight / 2f;
-            bottomLayer.transform.position = new Vector3(bottomLayer.transform.position.x, y);
-        }
-
-        private bool CameraUnderBottomLayer()
-        {
-            if (!checkForCameraVerticalMovement && Speed >= 0f) return false;
-            
-            Transform bottomLayer = backgroundLayers[bottomLayerIndex];
-            Sprite bottomLayerSprite = backgroundProgression[bottomLayerIndex];
-            float bottomLayerHeight = bottomLayerSprite.bounds.size.y;
-
-            float bottomLayerBottom = bottomLayer.position.y - bottomLayerHeight / 2f;
-            float cameraBottom = camera.transform.position.y - camera.orthographicSize;
-
-            return cameraBottom < bottomLayerBottom;
-        }
-
-        private void TopLayerToBottom()
-        {
-            Transform topLayer = backgroundLayers[topLayerIndex];
-            Transform bottomLayer = backgroundLayers[bottomLayerIndex];
-            
-            Sprite bottomLayerSprite = backgroundProgression[bottomLayerIndex];
-            Sprite topLayerSprite = backgroundProgression[topLayerIndex];
-            float bottomLayerHeight = bottomLayerSprite.bounds.size.y;
-            float topLayerHeight = topLayerSprite.bounds.size.y;
-
-            float y = bottomLayer.transform.position.y - bottomLayerHeight / 2f - topLayerHeight / 2f;
-            topLayer.transform.position = new Vector3(bottomLayer.transform.position.x, y);
-        }
-
-        private void RepositionLayerSections()
-        {
-            float cameraWidth = CameraWidth;
-            foreach (Transform layer in backgroundLayers)
-            {
-                while (LeftSectionOffCamera(layer, cameraWidth))
-                    LeftSectionToTheRight(layer);
-                
-                while (RightSectionOffCamera(layer, cameraWidth))
-                    RightSectionToTheLeft(layer);
-            }
-        }
-        
-        private bool RightSectionOffCamera(Transform layer, float cameraWidth)
-        {
-            Transform sectionToTheLeft = layerDataMap[layer].SectionToTheLeft;
-            float sectionSpriteWidth = layerDataMap[layer].SectionSprite.bounds.size.x;
-
-            float sectionToTheLeftLeftEdge = sectionToTheLeft.position.x - sectionSpriteWidth / 2f;
-            float cameraLeftEdge = camera.transform.position.x - cameraWidth / 2f;
-
-            return cameraLeftEdge < sectionToTheLeftLeftEdge;
-        }
-
-        private void LeftSectionToTheRight(Transform layer)
-        {
-            LayerData layerData = layerDataMap[layer];
-            Transform sectionToTheLeft = layerData.SectionToTheLeft;
-            Transform sectionToTheRight = layerData.SectionToTheRight;
-            float sectionSpriteWidth = layerData.SectionSprite.bounds.size.x;
-
-            float x = sectionToTheRight.transform.position.x + sectionSpriteWidth;
-            sectionToTheLeft.transform.position = new Vector3(x, sectionToTheLeft.transform.position.y);
-            
-            layerData.SectionToTheRight = sectionToTheLeft;
-            layerData.SectionToTheLeft = layer.Cast<Transform>()
-                                              .OrderBy(s => s.position.x)
-                                              .First();
-        }
-        
-        private bool LeftSectionOffCamera(Transform layer, float cameraWidth)
-        {
-            Transform sectionToTheRight = layerDataMap[layer].SectionToTheRight;
-            float sectionSpriteWidth = layerDataMap[layer].SectionSprite.bounds.size.x;
-            
-            float sectionToTheRightRightEdge = sectionToTheRight.position.x + sectionSpriteWidth / 2f;
-            float cameraRightEdge = camera.transform.position.x + cameraWidth / 2f;
-            
-            return sectionToTheRightRightEdge < cameraRightEdge;
-        }
-
-        private void RightSectionToTheLeft(Transform layer)
-        {
-            LayerData layerData = layerDataMap[layer];
-            Transform sectionToTheLeft = layerData.SectionToTheLeft;
-            Transform sectionToTheRight = layerData.SectionToTheRight;
-            float sectionSpriteWidth = layerData.SectionSprite.bounds.size.x;
-
-            float x = sectionToTheLeft.transform.position.x - sectionSpriteWidth;
-            sectionToTheRight.transform.position = new Vector3(x, sectionToTheLeft.transform.position.y);
-
-            layerData.SectionToTheLeft = sectionToTheRight;
-            layerData.SectionToTheRight = layer.Cast<Transform>()
-                                              .OrderByDescending(s => s.position.x)
-                                              .First();
         }
     }
 }
