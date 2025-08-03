@@ -7,12 +7,10 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-using Object = UnityEngine.Object;
-
 namespace Pituivan.UnityUtils
 {
     [CustomEditor(typeof(LevelLoader))]
-    internal class LevelLoaderInspector : Editor
+    internal class LevelLoaderInspector : UnityEditor.Editor
     {
         // ----- Serialized Fields
         
