@@ -63,10 +63,10 @@ namespace Pituivan.UnityUtils
         internal int OrderInLayer => orderInLayer;
 
         internal Bounds CameraBounds => cameraBounds;
-
+        
         // ----- Events
 
-        internal event Action CameraAspectRadioChanged;
+        internal Action CameraBoundsChanged;
 
         // ----- Unity Callbacks
 
@@ -80,7 +80,7 @@ namespace Pituivan.UnityUtils
             FillCameraWithBackgroundLayers();
         }
 
-        void LateUpdate()
+        void Update()
         {
             CheckForChangesInCamera();
         }
@@ -99,13 +99,13 @@ namespace Pituivan.UnityUtils
         
         private void FillCameraWithBackgroundLayers()
         {
-            var layers = GetComponentsInChildren<VerticalBackgroundLayer>().ToList();
+            var layers = GetComponentsInChildren<BackgroundLayer>().ToList();
 
             float coveredHeight = 0f;
             for (int i = 0; i < layers.Count; i++)
             {
                 Sprite layerSprite = backgroundProgression[i % backgroundProgression.Length];
-                coveredHeight = layerSprite.bounds.size.y;
+                coveredHeight += layerSprite.bounds.size.y;
             }
             
             while (coveredHeight < camera.orthographicSize * 2f)
@@ -113,7 +113,7 @@ namespace Pituivan.UnityUtils
                 foreach (Sprite sectionSprite in backgroundProgression)
                 {
                     var layerObj = new GameObject("Background Layer");
-                    var layer = layerObj.AddComponent<VerticalBackgroundLayer>();
+                    var layer = layerObj.AddComponent<BackgroundLayer>();
                     layer.transform.SetParent(transform);
 
                     layer.transform.position += coveredHeight * Vector3.up;
@@ -126,15 +126,15 @@ namespace Pituivan.UnityUtils
             InitBackgroundLayers(layers);
         }
 
-        private void InitBackgroundLayers(List<VerticalBackgroundLayer> layers)
+        private void InitBackgroundLayers(List<BackgroundLayer> layers)
         {
             for (int i = 0; i < layers.Count; i++)
             {
                 layers[i].Init(
                     sectionSprite: backgroundProgression[i % backgroundProgression.Length],
                     startsAsHead: i == 0,
-                    context: new VerticalBackgroundLayer.LayerContext(
-                        parentController: this,
+                    context: new BackgroundLayer.Context(
+                        controller: this,
                         previous: layers[(i + 1) % layers.Count],
                         next: layers[(layers.Count + i - 1) % layers.Count]
                         )
@@ -146,8 +146,9 @@ namespace Pituivan.UnityUtils
         {
             float camHeight = camera.orthographicSize * 2f;
             float camWidth = camHeight * camera.aspect;
-
             cameraBounds.size = new Vector3(camWidth, camHeight);
+
+            CameraBoundsChanged?.Invoke();
         }
 
         private void CheckForChangesInCamera()
@@ -163,7 +164,6 @@ namespace Pituivan.UnityUtils
                 if (cameraBounds.size.y > oldHeight)
                     FillCameraWithBackgroundLayers();
                 
-                CameraAspectRadioChanged?.Invoke();
                 lastCameraAspect = camera.aspect;   
             }
         }
