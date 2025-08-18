@@ -41,7 +41,7 @@ namespace Pituivan.UnityUtils
             transform.localPosition += context.Controller.Speed * Time.deltaTime * Vector3.down;
 
             HandleLayersLoop();
-            HandleSectionsLoop(cameraBoundsChanged: false);
+            HandleSectionsHorizontalLoop(cameraBoundsChanged: false);
         }
 
         // ----- Public Methods
@@ -60,21 +60,21 @@ namespace Pituivan.UnityUtils
             sections.First.Value.position += spriteWidth * Vector3.left;
             sections.Last.Value.position += spriteWidth * Vector3.right;
             
-            context.Controller.CameraBoundsChanged += () => HandleSectionsLoop(cameraBoundsChanged: true);
+            context.Controller.CameraBoundsChanged += () => HandleSectionsHorizontalLoop(cameraBoundsChanged: true);
         }
         
         // ----- Private Methods
         
         private void HandleLayersLoop()
         {
-            if (!context.Controller.CheckForCameraVerticalMovement && !isHead) return;
+            if (!context.Controller.CheckForCameraVerticalMovement || !isHead) return;
             
             var controller = context.Controller;
             Bounds camBounds = controller.CameraBounds;
 
             bool layerUnderCamera = (controller.Speed > 0 || controller.CheckForCameraVerticalMovement)
                                     && transform.position.y + verticalExtent < camBounds.min.y;
-            
+
             bool cameraUnderLayer = (controller.Speed < 0 || controller.CheckForCameraVerticalMovement)
                                     && camBounds.min.y < transform.position.y - verticalExtent;
 
@@ -102,7 +102,7 @@ namespace Pituivan.UnityUtils
             isHead = true;
         }
 
-        private void HandleSectionsLoop(bool cameraBoundsChanged)
+        private void HandleSectionsHorizontalLoop(bool cameraBoundsChanged)
         {
             if (!cameraBoundsChanged && !context.Controller.CheckForCameraHorizontalMovement) return;
 

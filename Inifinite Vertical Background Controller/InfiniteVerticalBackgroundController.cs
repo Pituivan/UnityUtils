@@ -78,6 +78,7 @@ namespace Pituivan.UnityUtils
             UpdateCameraBoundsSize();
             
             FillCameraWithBackgroundLayers();
+            PlaceInBottom();
         }
 
         void Update()
@@ -107,12 +108,13 @@ namespace Pituivan.UnityUtils
                 Sprite layerSprite = backgroundProgression[i % backgroundProgression.Length];
                 coveredHeight += layerSprite.bounds.size.y;
             }
-            
+
+            int index = 0;
             while (coveredHeight < camera.orthographicSize * 2f)
             {
                 foreach (Sprite sectionSprite in backgroundProgression)
                 {
-                    var layerObj = new GameObject("Background Layer");
+                    var layerObj = new GameObject($"Background Layer {++index}");
                     var layer = layerObj.AddComponent<BackgroundLayer>();
                     layer.transform.SetParent(transform);
 
@@ -151,6 +153,16 @@ namespace Pituivan.UnityUtils
             CameraBoundsChanged?.Invoke();
         }
 
+        private void PlaceInBottom()
+        {
+            if (backgroundProgression.Length == 0) return;
+
+            Bounds bottomSpriteBounds = backgroundProgression[0].bounds;
+            float heightToClimb = cameraBounds.min.y - bottomSpriteBounds.min.y + 1;
+            
+            transform.position += heightToClimb * Vector3.up;
+        }
+        
         private void CheckForChangesInCamera()
         {
             if (checkForCameraVerticalMovement || checkForCameraHorizontalMovement)
